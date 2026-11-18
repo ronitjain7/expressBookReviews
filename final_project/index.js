@@ -1,22 +1,24 @@
 const express = require('express');
-const jwt = require('jsonwebtoken');
-const session = require('express-session')
-const customer_routes = require('./router/auth_users.js').authenticated;
-const genl_routes = require('./router/general.js').general;
+const session = require('express-session');
+const { randomBytes } = require('node:crypto');
+const { authenticated } = require('./router/auth_users');
+const { general } = require('./router/general');
 
 const app = express();
-
 app.use(express.json());
-
-app.use("/customer",session({secret:"fingerprint_customer",resave: true, saveUninitialized: true}))
-
-app.use("/customer/auth/*", function auth(req,res,next){
-//Write the authenication mechanism here
+app.use('/customer', session({
+  secret: process.env.SESSION_SECRET || randomBytes(32).toString('hex'),
+  resave: false,
+  saveUninitialized: false
+}));
+app.use('/customer/auth', (req, res, next) => {
+  if (!req.session.username) {
+    return res.status(401).json({ message: 'Login required' });
+  }
+  return next();
 });
- 
-const PORT =5000;
+app.use('/customer', authenticated);
+app.use('/', general);
 
-app.use("/customer", customer_routes);
-app.use("/", genl_routes);
-
-app.listen(PORT,()=>console.log("Server is running"));
+const port = process.env.PORT || 5000;
+app.listen(port, () => console.log('Server is running on port ' + port));
